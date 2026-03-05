@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Real-time Leaderboard</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+            padding: 20px;
+        }
+
+        #leaderboard {
+            max-width: 400px;
+            margin: auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        #leaderboard h2 {
+            text-align: center;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        li {
+            padding: 8px 0;
+            border-bottom: 1px solid #ddd;
+            font-size: 16px;
+        }
+
+        input,
+        button {
+            padding: 10px;
+            margin: 5px 0;
+            width: 100%;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="leaderboard">
+        <h2>Leaderboard</h2>
+        <ul id="leaderList"></ul>
+
+        <input type="text" id="playerName" placeholder="Your Name">
+        <input type="number" id="playerScore" placeholder="Your Score">
+        <button id="sendScoreBtn">Send Score</button>
+    </div>
+
+    <script>
+        const socket = io("http://localhost:5000"); // replace with your server
+
+        const leaderList = document.getElementById("leaderList");
+        const sendScoreBtn = document.getElementById("sendScoreBtn");
+
+        // --- Fetch initial leaderboard from Express ---
+        async function fetchLeaderboard() {
+            try {
+                const res = await fetch("http://localhost:5000/leaderBoard"); // your GET route
+                const data = await res.json();
+                renderLeaderboard(data);
+            } catch (err) {
+                console.error("Failed to fetch leaderboard:", err);
+            }
+        }
+
+        // --- Render leaderboard ---
+        function renderLeaderboard(data) {
+            leaderList.innerHTML = "";
+            // Sort descending by score
+            data.sort((a, b) => b.score - a.score);
+            data.forEach(item => {
+                const li = document.createElement("li");
+                li.textContent = `${item.name} - ${item.score}`;
+                leaderList.appendChild(li);
+            });
+        }
+
+        // --- Send score to server ---
+        sendScoreBtn.addEventListener("click", () => {
+            const name = document.getElementById("playerName").value.trim();
+            const score = Number(document.getElementById("playerScore").value);
+
+            if (!name || !score) return alert("Enter name and score");
+
+            // Send score via Socket.IO
+            socket.emit("submitScore", { name, score });
+
+            // Optionally clear inputs
+            document.getElementById("playerScore").value = "";
+        });
+
+        // --- Listen for real-time leaderboard updates ---
+        socket.on("updateScore", (data) => {
+            // console.log("Leaderboard updated:", name, score);
+            renderLeaderboard(data);
+        });
+
+        // --- On first connection, fetch current leaderboard ---
+        socket.on("connect", () => {
+            console.log("Connected to server:", socket.id);
+            fetchLeaderboard();
+        });
+
+    </script>
+
+</body>
+
+</html>
